@@ -1,0 +1,21 @@
+{
+  "name": "cohort_piy",
+  "version": "1.0.0",
+  "description": "",
+  "repository": {
+    "type": "git",
+    "url": "Cohort_piy"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "node"
+  },
+  "dependencies": {
+    "fs": "^0.0.1-security",
+    "js-tiktoken": "^1.0.21",
+    "prompt-sync": "^4.2.0"
+  }
+}
