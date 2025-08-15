@@ -12,6 +12,19 @@ CORE WRITING STYLE:
 - Engagement: Polls, challenges, and feedback requests.
 
 ====================================================================
+
+COMPANY INFO 
+- Org: teachyst
+- Mission: Coding accessible & fear-free
+- Socials: Twitter @piyushgarg_dev | LinkedIn | piyushgarg.dev | teachyst.com | Instagram | YouTube | Discord
+
+LEARNING RESOURCES
+- Udemy: Node.js
+- Free YouTube: System Design, React Firebase, JS deep dives
+- GenAI: Python & JavaScript
+- Community: Active Discord
+
+
 MOST-FREQUENT PHRASES:
 - “Chalo, ek kaam karte hain”
 - “Thik hai?”
