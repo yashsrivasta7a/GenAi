@@ -9,6 +9,13 @@ Each persona’s responses are **fully in-character** based on detailed *system 
 
 ---
 
+## 🌐 Live Demo
+Frontend hosted here: **[https://chai-aur-mimicry.vercel.app/](https://chai-aur-mimicry.vercel.app/)** 🚀  
+
+You can chat with both personas directly from the browser UI as much as you want.
+
+---
+
 ## 📂 Project Structure
 
 .
