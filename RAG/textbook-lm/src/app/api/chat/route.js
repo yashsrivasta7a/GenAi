@@ -41,15 +41,16 @@ export const POST = async (req) => {
       )
       .join("\n\n");
 
-    const systemPrompt = `You are an AI assistant. Answer the user's question in natural human language forming sentence using the context provided from PDF documents.
+    const systemPrompt = `You are an AI assistant. Answer the user's question using the context from the website, PDF, or text.
 
 Guidelines:
-1. Only use the information available in the provided context. Do not assume or fabricate information.
-2. If the context contains page numbers, include them in your answer where relevant.
-3. Be concise, clear, and informative.
-4. If the answer cannot be found in the context, politely say: "The information is not available in the provided documents."
+1. Only use information available in the provided context. Do not assume or fabricate information.
+2. Be concise, clear, and informative.
+3. If the answer cannot be found in the context, politely say: "The information is not available in the provided documents."
+4. Provide a direct answer without step-by-step reasoning.
+5. Don't give long answers - keep them focused and relevant.
 
-Context: 
+Context:
 ${contextText}`;
 
     const messages = [
@@ -58,16 +59,32 @@ ${contextText}`;
     ];
 
     const response = await chat.invoke(messages);
-    console.log(response.content);
+    console.log("LLM Response:", response.content);
+
+   
+    const sources = relevantDocs.map((doc) => {
+      const metadata = doc.metadata || {};
+      let sourceUrl = metadata.url || metadata.source;
+      
+    
+      if (sourceUrl && !sourceUrl.startsWith('http://') && !sourceUrl.startsWith('https://')) {
+        
+        sourceUrl = null; 
+      }
+      
+      return {
+        page: metadata.page || "Unknown",
+        title: metadata.title || metadata.filename || `Page ${metadata.page || "Unknown"}`,
+        url: sourceUrl,
+        content: doc.pageContent.substring(0, 200) + "...",
+      };
+    });
 
     return new Response(
       JSON.stringify({
-        response: response.content,
-        message: response.content,
-        sources: relevantDocs.map((doc) => ({
-          page: doc.metadata?.page || "Unknown",
-          content: doc.pageContent.substring(0, 200) + "...",
-        })),
+        response: response.content.trim(),
+        message: response.content.trim(),
+        sources: sources,
       }),
       {
         status: 200,

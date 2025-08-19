@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Send, FileText, MessageCircle, Loader2, CheckCircle, AlertCircle, Bot, User, Database } from 'lucide-react';
 
@@ -8,6 +9,7 @@ const HomePage = () => {
   const [chatMessages, setChatMessages] = useState([]);
   const [currentQuery, setCurrentQuery] = useState('');
   const [isQuerying, setIsQuerying] = useState(false);
+  const [currentSteps, setCurrentSteps] = useState([]); // For real-time step display
   const [textAreaContent, setTextAreaContent] = useState('');
   const [webContent, setWebsiteUrl] = useState('');
   const [inputMode, setInputMode] = useState('text'); // 'text' or 'website'
@@ -16,8 +18,47 @@ const HomePage = () => {
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages]);
+  }, [chatMessages, currentSteps]);
 
+  // Simulate Perplexity-style steps for better UX while processing
+  const simulateProcessingSteps = async (query, hasFetchedContent = false) => {
+    const baseSteps = [
+      { type: 'thinking', content: `Understanding your question: "${query}"` },
+      { type: 'searching', content: 'Searching through knowledge base...' },
+    ];
+
+    if (hasFetchedContent) {
+      baseSteps.push(
+        { type: 'processing', content: 'Knowledge base has limited info, fetching live content...' },
+        { type: 'analyzing', content: 'Analyzing both stored and live content...' },
+        { type: 'synthesizing', content: 'Combining information from multiple sources...' }
+      );
+    } else {
+      baseSteps.push(
+        { type: 'analyzing', content: 'Analyzing relevant documents...' },
+        { type: 'synthesizing', content: 'Generating response...' }
+      );
+    }
+
+    setCurrentSteps([]);
+    
+    for (let i = 0; i < baseSteps.length; i++) {
+      await new Promise(resolve => setTimeout(resolve, 600));
+      setCurrentSteps(prev => [...prev, baseSteps[i]]);
+    }
+  };
+
+  const getStepTypeForDisplay = (stepType) => {
+    const typeMap = {
+      'start': 'thinking',
+      'think': 'analyzing', 
+      'tool': 'processing',
+      'observe': 'searching',
+      'answer': 'synthesizing'
+    };
+    return typeMap[stepType] || stepType;
+  };
+  
   const handleFileUpload = async (file) => {
     if (!file || file.type !== 'application/pdf') {
       setUploadStatus('error');
@@ -152,11 +193,13 @@ const HomePage = () => {
     const userMessage = { role: 'user', content: currentQuery, timestamp: new Date() };
     setChatMessages(prev => [...prev, userMessage]);
     setIsQuerying(true);
+    setCurrentSteps([]);
     
     const queryToSend = currentQuery;
     setCurrentQuery('');
 
     try {
+      // Make the actual API call
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -168,12 +211,55 @@ const HomePage = () => {
       const result = await response.json();
 
       if (response.ok) {
+        // Start processing steps based on whether content was fetched
+        const processingPromise = simulateProcessingSteps(queryToSend, result.fetchedContent);
+        await processingPromise;
+        
+        // Show final answer after steps
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Ensure we only use sources from this specific response
+        let formattedSources = [];
+        if (result.sources && Array.isArray(result.sources) && result.sources.length > 0) {
+          formattedSources = result.sources.map(source => {
+            // If source is already a string, return as is
+            if (typeof source === 'string') {
+              return source;
+            }
+            
+            let sourceText = '';
+            
+            // If source is an object with URL
+            if (source.url && (source.url.startsWith('http://') || source.url.startsWith('https://'))) {
+              sourceText = `${source.title} (${source.url})`;
+            } else {
+              // Return just the title/page info without invalid URL
+              sourceText = `${source.title} - Page ${source.page}`;
+            }
+
+            // Add indicator if this was fetched live
+            if (source.isFetched) {
+              sourceText += ' 🔴 Live';
+            }
+
+            return sourceText;
+          });
+
+          // Remove any duplicate sources (additional safety)
+          formattedSources = [...new Set(formattedSources)];
+        }
+
         const botMessage = { 
           role: 'assistant', 
-          content: result.response || result.message, 
-          timestamp: new Date() 
+          content: result.response || result.message,
+          sources: formattedSources, // Only use sources from this specific response
+          timestamp: new Date(),
+          isPerplexityStyle: true,
+          hasFetchedContent: result.fetchedContent || false
         };
         setChatMessages(prev => [...prev, botMessage]);
+        setCurrentSteps([]); // Clear steps after completion
+
       } else {
         throw new Error(result.error);
       }
@@ -182,9 +268,11 @@ const HomePage = () => {
         role: 'assistant', 
         content: `Sorry, there was an error processing your query: ${error.message}`, 
         timestamp: new Date(),
-        isError: true
+        isError: true,
+        sources: [] // Ensure no sources for error messages
       };
       setChatMessages(prev => [...prev, errorMessage]);
+      setCurrentSteps([]);
     } finally {
       setIsQuerying(false);
     }
@@ -196,6 +284,17 @@ const HomePage = () => {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const getStepIcon = (type) => {
+    switch (type) {
+      case 'thinking': return '🤔';
+      case 'searching': return '🔍';
+      case 'processing': return '⚡';
+      case 'analyzing': return '🧠';
+      case 'synthesizing': return '✨';
+      default: return '💭';
+    }
   };
 
   return (
@@ -289,12 +388,12 @@ const HomePage = () => {
               ) : (
                 // Website Input Mode
                 <>
-                  <input
-                    type="url"
+                  <textarea
+                     type="url"
                     value={webContent}
                     onChange={(e) => setWebsiteUrl(e.target.value)}
                     placeholder="Enter website URL here..."
-                    className="w-full flex-1 bg-black border border-zinc-800 rounded-xl p-4 text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-600 transition-colors"
+                    className="w-full flex-1 bg-black border border-zinc-800 rounded-xl p-4 text-white placeholder-zinc-500 resize-none focus:outline-none focus:border-zinc-600 transition-colors scrollbar-thin scrollbar-track-zinc-900 scrollbar-thumb-zinc-700"
                   />
                   
                   <button
@@ -434,6 +533,7 @@ const HomePage = () => {
           {/* Chat Panel */}
           <div className="lg:col-span-1 h-full overflow-hidden">
             <div className="bg-zinc-950 border border-zinc-800 rounded-2xl h-full flex flex-col overflow-hidden">
+              {/* Header */}
               <div className="flex items-center space-x-3 p-6 border-b border-zinc-800 flex-shrink-0">
                 <MessageCircle className="w-5 h-5 text-white" />
                 <h2 className="text-lg font-light">Chat</h2>
@@ -444,7 +544,8 @@ const HomePage = () => {
                   </div>
                 )}
               </div>
-              
+
+              {/* Chat area */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-track-zinc-900 scrollbar-thumb-zinc-700 min-h-0">
                 {chatMessages.length === 0 ? (
                   <div className="h-full flex items-center justify-center">
@@ -457,44 +558,129 @@ const HomePage = () => {
                 ) : (
                   <>
                     {chatMessages.map((message, index) => (
-                      <div key={index} className={`flex space-x-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`flex space-x-3 max-w-xs ${message.role === 'user' ? 'flex-row-reverse space-x-reverse' : 'flex-row'}`}>
+                      <div
+                        key={index}
+                        className={`flex space-x-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div className={`flex space-x-3 max-w-md ${message.role === 'user' ? 'flex-row-reverse space-x-reverse' : 'flex-row'}`}>
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                             message.role === 'user' ? 'bg-white' : message.isError ? 'bg-red-900' : 'bg-zinc-800'
                           }`}>
-                            {message.role === 'user' ? (
-                              <User className="w-4 h-4 text-black" />
-                            ) : (
-                              <Bot className="w-4 h-4 text-white" />
-                            )}
+                            {message.role === 'user' ? <User className="w-4 h-4 text-black" /> : <Bot className="w-4 h-4 text-white" />}
                           </div>
-                          <div className={`px-4 py-3 rounded-2xl max-w-full border ${
-                            message.role === 'user' 
-                              ? 'bg-white text-black border-zinc-300' 
-                              : message.isError 
-                                ? 'bg-red-950/50 text-red-300 border-red-900'
-                                : 'bg-zinc-900 text-zinc-200 border-zinc-800'
-                          }`}>
-                            <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
-                            <p className="text-xs mt-2 opacity-60">
-                              {message.timestamp.toLocaleTimeString()}
-                            </p>
+                          <div className="max-w-full">
+                            {/* User messages or error messages */}
+                            {(message.role === 'user' || message.isError) && (
+                              <div className={`px-4 py-3 rounded-2xl border ${
+                                message.role === 'user' 
+                                  ? 'bg-white text-black border-zinc-300' 
+                                  : 'bg-red-950/50 text-red-300 border-red-900'
+                              }`}>
+                                <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                                <p className="text-xs mt-2 opacity-60">{message.timestamp.toLocaleTimeString()}</p>
+                              </div>
+                            )}
+
+                            {/* Assistant messages with Perplexity style */}
+                            {message.role === 'assistant' && !message.isError && (
+                              <div className="space-y-3">
+                                {/* Main answer in highlighted box */}
+                                <div className={`px-4 py-4 border rounded-2xl backdrop-blur-sm ${
+                                  message.hasFetchedContent 
+                                    ? 'bg-gradient-to-r from-green-900/20 to-blue-900/20 border-green-800/30'
+                                    : 'bg-gradient-to-r from-blue-900/20 to-purple-900/20 border-blue-800/30'
+                                }`}>
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <div className={`w-2 h-2 rounded-full animate-pulse ${
+                                      message.hasFetchedContent ? 'bg-green-400' : 'bg-blue-400'
+                                    }`}></div>
+                                    <span className={`text-xs font-medium uppercase tracking-wide ${
+                                      message.hasFetchedContent ? 'text-green-400' : 'text-blue-400'
+                                    }`}>
+                                      {message.hasFetchedContent ? 'Answer (with live content)' : 'Answer'}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-white whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
+                                  <p className="text-xs mt-3 text-zinc-400">{message.timestamp.toLocaleTimeString()}</p>
+                                </div>
+
+                                {/* Sources */}
+                                {message.sources && (
+                                  <div className="px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-xl">
+                                    <div className="flex items-center space-x-2 mb-2">
+                                      <div className="w-2 h-2 bg-zinc-400 rounded-full"></div>
+                                      <span className="text-zinc-400 text-xs font-medium uppercase tracking-wide">Sources</span>
+                                    </div>
+                                    <div className="space-y-1">
+                                      {message.sources.map((source, idx) => {
+                                        // Extract URL from source string if it exists
+                                        let sourceUrl = '#';
+                                        let sourceTitle = source;
+                                        
+                                        // Check if source contains a URL in parentheses
+                                        const urlMatch = source.match(/\((https?:\/\/[^\)]+)\)/);
+                                        if (urlMatch) {
+                                          sourceUrl = urlMatch[1];
+                                          sourceTitle = source.replace(/\s*\([^)]+\)/, '');
+                                        } else if (source.includes('http://') || source.includes('https://')) {
+                                          // Check if source contains a direct URL
+                                          const directUrlMatch = source.match(/(https?:\/\/[^\s]+)/);
+                                          if (directUrlMatch) {
+                                            sourceUrl = directUrlMatch[1];
+                                            sourceTitle = source.replace(directUrlMatch[1], '').trim();
+                                          }
+                                        }
+
+                                        return (
+                                          <div key={idx} className="text-xs text-zinc-300 flex items-center space-x-2">
+                                            <span className="text-zinc-500">•</span>
+                                            {sourceUrl !== '#' ? (
+                                              <a 
+                                                href={sourceUrl} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="text-blue-400 hover:text-blue-300 underline decoration-blue-400/30 hover:decoration-blue-300 transition-colors"
+                                              >
+                                                {sourceTitle || 'Source'}
+                                              </a>
+                                            ) : (
+                                              <span className="text-zinc-400">
+                                                {sourceTitle}
+                                              </span>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
                     ))}
-                    
+
+                    {/* Real-time processing steps (Perplexity style) */}
                     {isQuerying && (
                       <div className="flex space-x-3 justify-start">
-                        <div className="flex space-x-3 max-w-xs">
+                        <div className="flex space-x-3 max-w-md">
                           <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-zinc-800">
                             <Bot className="w-4 h-4 text-white" />
                           </div>
-                          <div className="px-4 py-3 rounded-2xl bg-zinc-900 border border-zinc-800">
-                            <div className="flex items-center space-x-2">
-                              <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />
-                              <span className="text-zinc-400 text-sm">Thinking...</span>
-                            </div>
+                          <div className="space-y-2">
+                            {currentSteps.map((step, index) => (
+                              <div key={index} className="flex items-center space-x-3 text-zinc-400 text-sm animate-fade-in">
+                                <span className="text-lg">{getStepIcon(step.type)}</span>
+                                <span>{step.content}</span>
+                              </div>
+                            ))}
+                            {currentSteps.length > 0 && (
+                              <div className="flex items-center space-x-3 text-zinc-500 text-sm">
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Processing...</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -504,6 +690,7 @@ const HomePage = () => {
                 )}
               </div>
 
+              {/* Input */}
               <div className="p-4 border-t border-zinc-800 flex-shrink-0">
                 <div className="flex space-x-2">
                   <input
@@ -532,7 +719,6 @@ const HomePage = () => {
           </div>
         </div>
       </div>
-
       <style jsx>{`
         .scrollbar-thin::-webkit-scrollbar {
           width: 4px;
