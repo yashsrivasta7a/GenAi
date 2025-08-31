@@ -1,0 +1,21 @@
+{
+  "dependencies": {
+    "@openai/agents": "^0.1.0",
+    "dotenv": "^17.2.1",
+    "kleur": "^4.1.5",
+    "playwright": "^1.55.0",
+    "zod": "^3.25.76"
+  },
+  "name": "aisdk",
+  "type": "module",
+  "version": "1.0.0",
+  "main": "basic.js",
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^24.3.0"
+  },
+  "scripts": {},
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}
