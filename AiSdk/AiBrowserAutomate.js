@@ -45,13 +45,26 @@ const askUser = tool({
   }),
   async execute({ question }) {
     return new Promise((resolve) => {
-      const rl = readline.createInterface({
+      if (mainRl) {
+        mainRl.pause();
+        process.stdin.removeAllListeners('keypress');
+      }
+      
+      const tempRl = readline.createInterface({
         input: process.stdin,
-        output: process.stdout
+        output: process.stdout,
+        terminal: true
       });
-      rl.question(`${question} `, (answer) => {
-        rl.close();
-        resolve(answer);
+      
+      tempRl.question(`\n${question} `, (answer) => {
+        tempRl.close();
+        process.stdin.removeAllListeners('keypress');
+        
+        if (mainRl) {
+          mainRl.resume();
+        }
+        
+        resolve(answer.trim());
       });
     });
   },
@@ -267,14 +280,25 @@ async function directOpenWebPage(url) {
 
 async function directAskUser(question) {
   return new Promise((resolve) => {
-    if (mainRl) mainRl.pause();
+    if (mainRl) {
+      mainRl.pause();
+      process.stdin.removeAllListeners('keypress');
+    }
+    
     const tempRl = readline.createInterface({
       input: process.stdin,
-      output: process.stdout
+      output: process.stdout,
+      terminal: true
     });
+    
     tempRl.question(`\n❓ ${question} `, (answer) => {
       tempRl.close();
-      if (mainRl) mainRl.resume();
+      process.stdin.removeAllListeners('keypress');
+      
+      if (mainRl) {
+        mainRl.resume();
+      }
+      
       resolve(answer.trim());
     });
   });
@@ -332,7 +356,6 @@ const websiteAutomationAgent = new Agent({
   name: "Website Automation Agent",
   instructions: SYSTEM_PROMPT,
   tools: [askUser, openWebPage, getDomElements, clickElement, fillInput, takeScreenshot, getPageHTML, taskComplete],
-    model: "gpt-4o-mini" 
 });
 
 async function runAgentTask(task) {
@@ -392,6 +415,7 @@ const main = async () => {
     input: process.stdin,
     output: process.stdout,
     prompt: "TASK > ",
+    terminal: true
   });
 
   mainRl.prompt();
@@ -404,7 +428,11 @@ const main = async () => {
       mainRl.close();
       process.exit(0);
     }
-    if (task) await runAgentTask(task);
+    if (task) {
+      mainRl.pause();
+      await runAgentTask(task);
+      mainRl.resume();
+    }
     mainRl.prompt();
   }).on("close", async () => {
     await browser.close();
