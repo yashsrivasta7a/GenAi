@@ -59,7 +59,7 @@ ${contextText}`;
     ];
 
     const response = await chat.invoke(messages);
-    console.log("LLM Response:", response.content);
+    console.log(" LLM Response: ", response.content);
 
    
     const sources = relevantDocs.map((doc) => {

@@ -10,21 +10,7 @@ import {SYSTEM_PROMPT} from './SYSTEM_PROMPT.js'
 
 const app = express();
 app.use(cors());
-app.use(express.json());
-
-const client = new AzureOpenAI();
-
-async function readFile(path) {
-  return fs.readFileSync(path, "utf-8");
-}
-
-async function deleteFile(filePath) {
-  fs.unlinkSync(filePath);
-  return `File deleted at ${filePath}`;
-}
-
-async function appendFile({ path: filePath, content }) {
-  fs.appendFileSync(filePath, content, "utf-8");
+app.use(express.json());s
   return `Content appended to ${filePath}`;
 }
 

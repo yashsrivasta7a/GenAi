@@ -5,7 +5,7 @@ import path from "path";
 import "dotenv/config";
 const client = new AzureOpenAI();
 import axios from "axios";
-import SYSTEM_PROMPT from './SYSTEM_PROMPT.js'
+import {SYSTEM_PROMPT} from './SYSTEM_PROMPT.js'
 
 async function readFile(path) {
   return fs.readFileSync(path, "utf-8");
@@ -344,7 +344,6 @@ const TOOL_MAP = {
 };
 
 async function main() {
-
   const messages = [
     {
       role: "system",
@@ -352,7 +351,7 @@ async function main() {
     },
     {
       role: "user",
-      content: "https://www.piyushgarg.dev"
+      content: "http://https://piyushgarg.dev/"
     },
   ];
 
